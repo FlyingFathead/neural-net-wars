@@ -1,4 +1,4 @@
-# neural net wars 14.01
+# neural net wars 14.02
 
 import pygame
 import random
@@ -61,6 +61,7 @@ fight_mode = False  # Flag to indicate if a fight is happening
 current_fight_bot = None  # Track the current bot being fought
 game_started = False  # Track if the game has started
 time_left = time_limit  # Initialize the timer
+footer_message = ""  # Footer message for additional information
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -107,7 +108,7 @@ def draw_grid():
 def draw_stats(time_left):
     # Prepare and draw the stats text without background fill
     if display_action_message:
-        stats_text = f"[ 🚨 ACTION! 🚨 ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
+        stats_text = f"[ *** ACTION! *** ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
     else:
         stats_text = f"[ Time left: {time_left:.1f} s ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
 
@@ -122,12 +123,12 @@ def draw_stats(time_left):
         y_offset += 30
 
 def draw_footer():
-    footer_text = "Game on!" if game_started else "Press arrow keys or W,A,S,D to start"
+    footer_text = footer_message if footer_message else ("Game on!" if game_started else "Press arrow keys or W,A,S,D to start")
     text_surface = font.render(footer_text, True, (255, 255, 255))
     screen.blit(text_surface, (10, total_height - 40))  # Align text at the bottom left
 
 def move_player(direction):
-    global player_pos, grid, fight_mode
+    global player_pos, grid, fight_mode, footer_message
 
     if fight_mode:
         return
@@ -139,12 +140,16 @@ def move_player(direction):
 
     if direction == 'up':
         player_pos[0] = (player_pos[0] - 1) % height if wrap_around else max(0, player_pos[0] - 1)
+        footer_message = "You moved up."
     elif direction == 'down':
         player_pos[0] = (player_pos[0] + 1) % height if wrap_around else min(height - 1, player_pos[0] + 1)
+        footer_message = "You moved down."
     elif direction == 'left':
         player_pos[1] = (player_pos[1] - 1) % width if wrap_around else max(0, player_pos[1] - 1)
+        footer_message = "You moved left."
     elif direction == 'right':
         player_pos[1] = (player_pos[1] + 1) % width if wrap_around else min(width - 1, player_pos[1] + 1)
+        footer_message = "You moved right."
 
     print(f"Player moved from {old_pos} to {player_pos}")
 
@@ -175,17 +180,18 @@ def move_bots():
     bot_count = len(bots)
 
 def check_collision():
-    global fight_mode, current_fight_bot
+    global fight_mode, current_fight_bot, footer_message
 
     for bot in bots:
         if bot == player_pos:
             print(f"Collision detected at {bot}. Initiating fight.")
             fight_mode = True
             current_fight_bot = bot  # Track which bot is fighting
+            footer_message = f"Collision at {bot}. Fight started!"
             break  # Exit loop once a fight is initiated
 
 def fight_step():
-    global player_hitpoints, game_over, fight_mode, current_fight_bot, bot_count
+    global player_hitpoints, game_over, fight_mode, current_fight_bot, bot_count, footer_message
     if current_fight_bot is None:
         fight_mode = False
         return
@@ -195,18 +201,26 @@ def fight_step():
     if player_hitpoints > 0 and bot_hitpoints[bot_index] > 0:
         if random.random() < hit_chance:
             player_hitpoints -= 1
-            print("Bot hit the player!")
+            message = "Bot hit the player!"
+            footer_message = message
+            print(message)
             if player_hitpoints <= 0:
-                print("Player is dead. Game over.")
+                message = "Player is dead. Game over."
+                footer_message = message
+                print(message)
                 game_over = True
                 grid[player_pos[0]][player_pos[1]] = EXPLOSION_CHAR
                 fight_mode = False
 
         if random.random() < hit_chance:
             bot_hitpoints[bot_index] -= 1
-            print(f"Player hit Bot {bot_index}!")
+            message = f"Player hit Bot {bot_index}!"
+            footer_message = message
+            print(message)
             if bot_hitpoints[bot_index] <= 0:
-                print(f"Bot {bot_index} is dead.")
+                message = f"Bot {bot_index} is dead."
+                footer_message = message
+                print(message)
                 grid[current_fight_bot[0]][current_fight_bot[1]] = EXPLOSION_CHAR
                 bots.remove(current_fight_bot)
                 bot_count -= 1
@@ -230,7 +244,7 @@ def print_ascii_grid():
     print("=" * (width * 2 - 1) + "\n")
 
 def game_loop():
-    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left
+    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left, footer_message
     last_update_time = pygame.time.get_ticks()
     action_start_time = 0
 
@@ -251,6 +265,7 @@ def game_loop():
                     if not game_started:
                         game_started = True
                         time_left = time_limit  # Initialize the timer once the game starts
+                        footer_message = ""
 
         # Check if movement is locked or if action message is being displayed
         if not lock_movement and current_direction == "None":
@@ -278,7 +293,8 @@ def game_loop():
                     update_grid()
                     print_ascii_grid()  # Print ASCII grid to terminal
                 else:
-                    print("Waiting...")  # Display waiting message
+                    footer_message = "Waiting..."  # Display waiting message
+                    print(footer_message)
                 current_direction = "None"
                 display_action_message = False
 
