@@ -62,7 +62,7 @@ human_senior_image = load_and_resize_image("gfx/neural_net_wars_human_senior.png
 DEFAULT_WIDTH = 12
 DEFAULT_HEIGHT = 12
 PLAYER_CHAR = '@'
-EMPTY_CHAR = ' '
+EMPTY_CHAR = '.'
 EXPLOSION_CHAR = 'X'  # Explosion indicator
 # Constants for screen dimensions
 STATS_HEIGHT = 60  # Additional height to accommodate stats display
