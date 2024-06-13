@@ -44,6 +44,7 @@ WIP! Only rudimentary functionalities here at the moment.
 **i.e. LLM calling is currently a placeholder -- actual functionality coming soon, hopefully!**
 
 # Changelog
+- v0.15 - minimal in-game AI implemented w/ BFS pathfinding & pressure on player
 - v0.14.06 - TTS taunts implemented
 - v0.14.05 - game loop now pretty much working, LLM implementation WIP
 - v0.14.04 - timer was made optional (`false` for immediate mode)

@@ -1,4 +1,4 @@
-# neural net wars 0.14.06 // 13. jun 2024
+# neural net wars 0.15 // 13. jun 2024
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # https://github.com/FlyingFathead/neural-net-wars/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -20,6 +20,7 @@ import random
 import pyttsx3
 import asyncio
 import threading
+from collections import deque
 
 class TTSManager:
     def __init__(self):
@@ -228,11 +229,12 @@ def move_player(direction):
     grid[player_pos[0]][player_pos[1]] = PLAYER_CHAR
     check_collision()
 
-def send_game_state_to_llm(grid, bots, player_pos):
+def send_game_state_to_llm(grid, bots, player_pos, pressure):
     game_state = {
         "grid": grid,
         "bots": [{ "id": bot["id"], "pos": bot["pos"] } for bot in bots],
-        "player_pos": player_pos
+        "player_pos": player_pos,
+        "pressure": pressure  # Include pressure in the game state
     }
     # For illustration, we mock the response
     # response = requests.post(LLM_API_URL, json=game_state)
@@ -240,33 +242,96 @@ def send_game_state_to_llm(grid, bots, player_pos):
     # Mocked response
     return {"bot_commands": ["down" for _ in bots]}
 
-def move_bots():
+def is_position_free(new_position, bots):
+    # Check if the new position is occupied by any bot
+    return not any(bot['pos'] == new_position for bot in bots if bot['pos'] != new_position)
+    # return all(bot['pos'] != position for bot in bots)
+
+def find_alternative_move(current_position, preferred_directions, bots):
+    # Shuffle directions to ensure non-deterministic behavior
+    random.shuffle(preferred_directions)
+    for direction in preferred_directions:
+        new_position = get_new_position(current_position, direction)
+        if is_position_free(new_position, bots):
+            return new_position
+    return current_position  # Return original position if no free space is found
+
+def get_new_position(current_position, direction):
+    # Calculate new position based on the direction
+    if direction == 'up':
+        return [current_position[0] - 1, current_position[1]]
+    elif direction == 'down':
+        return [current_position[0] + 1, current_position[1]]
+    elif direction == 'left':
+        return [current_position[0], current_position[1] - 1]
+    elif direction == 'right':
+        return [current_position[0], current_position[1] + 1]
+
+def calculate_pressure(player_health, game_time, num_bots):
+    # Example formula to calculate pressure put on the player
+    return min(1, 0.5 + 0.01 * game_time + 0.05 * num_bots - 0.1 * player_health)
+
+def get_path_towards_player(start_pos, player_pos, grid, bots):
+    """
+    Finds a path from start_pos to player_pos using BFS.
+    
+    :param start_pos: Tuple (y, x) starting position of the bot
+    :param player_pos: Tuple (y, x) position of the player
+    :param grid: Current state of the game grid
+    :param bots: List of all bots for collision detection
+    :return: List of directions leading towards the player
+    """
+    directions = {
+        'up': (-1, 0),
+        'down': (1, 0),
+        'left': (0, -1),
+        'right': (0, 1)
+    }
+    queue = deque([(start_pos, [])])
+    visited = set()
+    visited.add(start_pos)
+
+    while queue:
+        current_pos, path = queue.popleft()
+        
+        for dir_key, (dy, dx) in directions.items():
+            new_pos = (current_pos[0] + dy, current_pos[1] + dx)
+            
+            if new_pos == player_pos:
+                return path + [dir_key]
+            
+            if 0 <= new_pos[0] < len(grid) and 0 <= new_pos[1] < len(grid[0]):
+                if new_pos not in visited and is_position_free(new_pos, bots):
+                    visited.add(new_pos)
+                    queue.append((new_pos, path + [dir_key]))
+
+    return []  # Return an empty path if no path is found
+
+def move_bots(pressure):
     global game_over, bot_count, fight_mode
 
     if fight_mode:
         return
 
-    # Get bot commands from LLM
-    llm_response = send_game_state_to_llm(grid, bots, player_pos)
+    llm_response = send_game_state_to_llm(grid, bots, player_pos, pressure)  # Now sending pressure to LLM
     bot_commands = llm_response["bot_commands"]
 
     for i, bot in enumerate(bots):
         old_pos = bot["pos"].copy()
-        if bot_commands[i] == 'down':
-            bot["pos"][0] += 1
-        elif bot_commands[i] == 'up':
-            bot["pos"][0] -= 1
-        elif bot_commands[i] == 'left':
-            bot["pos"][1] -= 1
-        elif bot_commands[i] == 'right':
-            bot["pos"][1] += 1
+        # Adjust movement strategy based on pressure
+        if pressure > 0.8:
+            # More direct and aggressive movement
+            direct_path = get_path_towards_player(bot["pos"], player_pos)
+            new_position = find_alternative_move(bot["pos"], direct_path, bots)
+        else:
+            # Calculate based on normal LLM commands
+            preferred_directions = [bot_commands[i], 'up', 'down', 'left', 'right']
+            new_position = find_alternative_move(bot["pos"], preferred_directions, bots)
 
-        # Ensure bot stays within bounds
-        bot["pos"][0] = max(0, min(bot["pos"][0], height - 1))
-        bot["pos"][1] = max(0, min(bot["pos"][1], width - 1))
+        bot['pos'] = [max(0, min(new_position[0], height - 1)), max(0, min(new_position[1], width - 1))]
 
         if bot["pos"] == player_pos:
-            print(f"Bot {bot['id']} collided with the player at {bot['pos']}. Initiating fight.")
+            print(f"Bot {bot['id']} collided with the player. Initiating fight.")
             fight_mode = True
             current_fight_bot = bot
             break
@@ -275,6 +340,43 @@ def move_bots():
 
     bots[:] = [bot for bot in bots if bot["pos"][0] < height and bot_hitpoints[bot["id"]] > 0]
     bot_count = len(bots)
+
+# # (old; extremely basic approach)
+# def move_bots():
+#     global game_over, bot_count, fight_mode
+
+#     if fight_mode:
+#         return
+
+#     # Get bot commands from LLM
+#     llm_response = send_game_state_to_llm(grid, bots, player_pos)
+#     bot_commands = llm_response["bot_commands"]
+
+#     for i, bot in enumerate(bots):
+#         old_pos = bot["pos"].copy()
+#         if bot_commands[i] == 'down':
+#             bot["pos"][0] += 1
+#         elif bot_commands[i] == 'up':
+#             bot["pos"][0] -= 1
+#         elif bot_commands[i] == 'left':
+#             bot["pos"][1] -= 1
+#         elif bot_commands[i] == 'right':
+#             bot["pos"][1] += 1
+
+#         # Ensure bot stays within bounds
+#         bot["pos"][0] = max(0, min(bot["pos"][0], height - 1))
+#         bot["pos"][1] = max(0, min(bot["pos"][1], width - 1))
+
+#         if bot["pos"] == player_pos:
+#             print(f"Bot {bot['id']} collided with the player at {bot['pos']}. Initiating fight.")
+#             fight_mode = True
+#             current_fight_bot = bot
+#             break
+
+#         print(f"Bot {bot['id']} moved from {old_pos} to {bot['pos']}")
+
+#     bots[:] = [bot for bot in bots if bot["pos"][0] < height and bot_hitpoints[bot["id"]] > 0]
+#     bot_count = len(bots)
 
 def check_collision():
     global fight_mode, current_fight_bot, footer_message
@@ -383,6 +485,9 @@ async def async_game_loop():
             elapsed_time = (current_time - last_update_time) / 1000.0  # Convert to seconds
             last_update_time = current_time
 
+            # Calculate pressure based on current game conditions
+            pressure = calculate_pressure(player_hitpoints, elapsed_time, len(bots))
+
             # Process events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -400,7 +505,7 @@ async def async_game_loop():
                                 footer_message = ""
                             else:
                                 move_player(last_direction)
-                                move_bots()
+                                move_bots(pressure)  # Add the pressure argument
                                 update_grid()
                                 print_ascii_grid()  # Print ASCII grid to terminal
                                 await taunt_player()  # Call taunt_player asynchronously
@@ -440,7 +545,7 @@ async def async_game_loop():
                         move_player(current_direction)
                         print(f"Player moved to {player_pos}")
                         print(f"Bots before moving: {bots}")
-                        move_bots()
+                        move_bots(pressure)  # Add the pressure argument
                         print(f"Bots after moving: {bots}")
                         update_grid()
                         print_ascii_grid()  # Print ASCII grid to terminal
@@ -489,6 +594,10 @@ async def async_game_loop():
                         print("SPACE pressed. Restarting game.")
                         game_over = False
                         break  # Exit the waiting loop to restart the game
+
+# Initialize game
+update_grid()
+asyncio.run(async_game_loop())
 
 # Initialize game
 update_grid()
