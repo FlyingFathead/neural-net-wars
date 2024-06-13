@@ -25,7 +25,9 @@ Use the arrow keys or W, A, S, D to move your character. Press SPACE to start a 
 - power-ups and obstacles, other game features etc.
 
 # About
-WIP! Only rudimentary functionalities here at the moment.
+WIP! Only rudimentary functionalities here at the moment. 
+
+**i.e. LLM calling is currently a placeholder -- actual functionality coming soon, hopefully!**
 
 # Changelog
 - v0.14.05 - game loop now pretty much working, LLM implementation WIP
