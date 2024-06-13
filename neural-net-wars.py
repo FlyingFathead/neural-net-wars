@@ -1,4 +1,4 @@
-# neural net wars v0.12
+# neural net wars v0.14
 
 import pygame
 import random
@@ -17,6 +17,7 @@ def load_and_resize_image(file_path, size):
 CELL_SIZE = 50
 robot_image = load_and_resize_image("gfx/neural_net_wars_robot.png", (CELL_SIZE, CELL_SIZE))
 human_image = load_and_resize_image("gfx/neural_net_wars_human.png", (CELL_SIZE, CELL_SIZE))
+explosion_image = load_and_resize_image("gfx/neural_net_wars_explosion.png", (CELL_SIZE, CELL_SIZE))
 human_senior_dmg_image = load_and_resize_image("gfx/neural_net_wars_human_senior_dmg.png", (CELL_SIZE, CELL_SIZE))
 human_senior_fire_image = load_and_resize_image("gfx/neural_net_wars_human_senior_fire.png", (CELL_SIZE, CELL_SIZE))
 human_senior_image = load_and_resize_image("gfx/neural_net_wars_human_senior.png", (CELL_SIZE, CELL_SIZE))
@@ -29,9 +30,9 @@ BOT_CHAR = 'b'
 EMPTY_CHAR = ' '
 # Constants for screen dimensions
 STATS_HEIGHT = 60  # Additional height to accommodate stats display
-MIN_STATS_WIDTH = 800  # Minimum width required for the stats section
-STATS_WIDTH = 200  # Width for the stats display area
+STATS_WIDTH = 210  # Width for the stats display area
 MIN_HEIGHT = 600  # Minimum height required for the window
+MIN_STATS_WIDTH = STATS_WIDTH + 600  # Minimum width required for the window including stats
 
 # Game State
 width = DEFAULT_WIDTH
@@ -51,10 +52,13 @@ human_count = initial_humans
 bot_count = initial_bots
 display_action_message = False  # Flag to display the action message
 last_direction = "None"
-lock_movement = True
+lock_movement = False
 player_hitpoints = 10
 bot_hitpoints = [3 for _ in range(initial_bots)]
 hit_chance = 0.5  # 50% chance to hit
+fight_mode = False  # Flag to indicate if a fight is happening
+current_fight_bot = None  # Track the current bot being fought
+game_started = False  # Track if the game has started
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -91,14 +95,19 @@ def draw_grid():
                     screen.blit(robot_image, rect.topleft)
                 else:
                     pygame.draw.rect(screen, (255, 0, 0), rect)  # Red if no image
+            elif grid[y][x] == 'X':  # Explosion indicator
+                if explosion_image:
+                    screen.blit(explosion_image, rect.topleft)
+                else:
+                    pygame.draw.rect(screen, (255, 165, 0), rect)  # Orange if no image
             pygame.draw.rect(screen, (255, 255, 255), rect, 1)
 
 def draw_stats(time_left):
     # Prepare and draw the stats text without background fill
     if display_action_message:
-        stats_text = f"[ 🚨 ACTION! 🚨 ]\n[ Current move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
+        stats_text = f"[ 🚨 ACTION! 🚨 ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
     else:
-        stats_text = f"[ Time left: {time_left:.1f} s ]\n[ Current move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
+        stats_text = f"[ Time left: {time_left:.1f} s ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
 
     stats_text += f"\n[ Player HP: {player_hitpoints} ]"
     for i, hp in enumerate(bot_hitpoints):
@@ -110,8 +119,18 @@ def draw_stats(time_left):
         screen.blit(text_surface, (grid_width + 10, y_offset))  # Adjust x, y to align text within stats_area
         y_offset += 30
 
+def draw_footer():
+    footer_text = "Game on!" if game_started else "Press arrow keys or W,A,S,D to start"
+    text_surface = font.render(footer_text, True, (255, 255, 255))
+    screen.blit(text_surface, (10, total_height - 40))  # Align text at the bottom left
+
 def move_player(direction):
-    global player_pos, grid
+    global player_pos, grid, fight_mode
+
+    if fight_mode:
+        return
+
+    old_pos = player_pos.copy()
 
     # Clear the previous player position from the grid
     grid[player_pos[0]][player_pos[1]] = EMPTY_CHAR  
@@ -119,42 +138,79 @@ def move_player(direction):
     if direction == 'up':
         player_pos[0] = (player_pos[0] - 1) % height if wrap_around else max(0, player_pos[0] - 1)
     elif direction == 'down':
-        player_pos[0] = min(height - 1, player_pos[0] + 1)  
+        player_pos[0] = (player_pos[0] + 1) % height if wrap_around else min(height - 1, player_pos[0] + 1)
     elif direction == 'left':
         player_pos[1] = (player_pos[1] - 1) % width if wrap_around else max(0, player_pos[1] - 1)
     elif direction == 'right':
         player_pos[1] = (player_pos[1] + 1) % width if wrap_around else min(width - 1, player_pos[1] + 1)
 
+    print(f"Player moved from {old_pos} to {player_pos}")
+
     # Update the grid to reflect the new player position
     grid[player_pos[0]][player_pos[1]] = PLAYER_CHAR
+    check_collision()
 
 def move_bots():
-    global game_over, bot_count
+    global game_over, bot_count, fight_mode
+
+    if fight_mode:
+        return
+
     for bot in bots:
+        old_pos = bot.copy()
         bot[0] += 1
         if bot[0] >= height:
             print(f"Bot reached the bottom of the grid at {bot}. Game over.")
             game_over = True
         elif bot == player_pos:
-            print(f"Bot collided with the player at {bot}. Initiating attack.")
-            attack(bot)
+            print(f"Bot collided with the player at {bot}. Initiating fight.")
+            fight_mode = True
+            current_fight_bot = bot  # Track which bot is fighting
+            break
+        print(f"Bot moved from {old_pos} to {bot}")
+
     bots[:] = [bot for bot in bots if bot[0] < height and bot_hitpoints[bots.index(bot)] > 0]
     bot_count = len(bots)
 
-def attack(bot):
-    global player_hitpoints, game_over
-    if random.random() < hit_chance:
-        print("Bot hit the player!")
-        player_hitpoints -= 1
-        if player_hitpoints <= 0:
-            print("Player is dead. Game over.")
-            game_over = True
-    if random.random() < hit_chance:
-        bot_index = bots.index(bot)
-        print(f"Player hit Bot {bot_index}!")
-        bot_hitpoints[bot_index] -= 1
-        if bot_hitpoints[bot_index] <= 0:
-            print(f"Bot {bot_index} is dead.")
+def check_collision():
+    global fight_mode, current_fight_bot
+
+    for bot in bots:
+        if bot == player_pos:
+            print(f"Collision detected at {bot}. Initiating fight.")
+            fight_mode = True
+            current_fight_bot = bot  # Track which bot is fighting
+            break  # Exit loop once a fight is initiated
+
+def fight_step():
+    global player_hitpoints, game_over, fight_mode, current_fight_bot, bot_count
+    if current_fight_bot is None:
+        fight_mode = False
+        return
+
+    bot_index = bots.index(current_fight_bot)
+
+    if player_hitpoints > 0 and bot_hitpoints[bot_index] > 0:
+        if random.random() < hit_chance:
+            player_hitpoints -= 1
+            print("Bot hit the player!")
+            if player_hitpoints <= 0:
+                print("Player is dead. Game over.")
+                game_over = True
+                grid[player_pos[0]][player_pos[1]] = 'X'
+                fight_mode = False
+
+        if random.random() < hit_chance:
+            bot_hitpoints[bot_index] -= 1
+            print(f"Player hit Bot {bot_index}!")
+            if bot_hitpoints[bot_index] <= 0:
+                print(f"Bot {bot_index} is dead.")
+                grid[current_fight_bot[0]][current_fight_bot[1]] = 'X'
+                bots.remove(current_fight_bot)
+                bot_count -= 1
+                fight_mode = False
+    else:
+        fight_mode = False
 
 def update_grid():
     global game_over, grid
@@ -163,9 +219,7 @@ def update_grid():
     for bot in bots:
         if bot[0] < height:
             grid[bot[0]][bot[1]] = BOT_CHAR
-        if bot == player_pos:
-            print(f"Bot collided with the player in update_grid at {bot}. Game over.")
-            game_over = True
+    check_collision()
 
 def print_ascii_grid():
     print("\n" + "=" * (width * 2 - 1))
@@ -174,48 +228,43 @@ def print_ascii_grid():
     print("=" * (width * 2 - 1) + "\n")
 
 def game_loop():
-    global game_over, current_direction, last_direction, display_action_message
-    time_left = time_limit  # Time left in seconds
+    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started
     last_update_time = pygame.time.get_ticks()
     action_start_time = 0
+    time_left = time_limit  # Initialize time_left here
 
     while not game_over:
         current_time = pygame.time.get_ticks()
         elapsed_time = (current_time - last_update_time) / 1000.0  # Convert to seconds
         last_update_time = current_time
 
+        # Process events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 print("Quit event detected. Game over.")
                 game_over = True
             elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_UP, pygame.K_w):
-                    last_direction = 'up'
-                elif event.key in (pygame.K_DOWN, pygame.K_s):
-                    last_direction = 'down'
-                elif event.key in (pygame.K_LEFT, pygame.K_a):
-                    last_direction = 'left'
-                elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                    last_direction = 'right'
-        
-        if not lock_movement or current_direction == "None":
+                if event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s, pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d):
+                    last_direction = {pygame.K_UP: 'up', pygame.K_w: 'up', pygame.K_DOWN: 'down', pygame.K_s: 'down',
+                                      pygame.K_LEFT: 'left', pygame.K_a: 'left', pygame.K_RIGHT: 'right', pygame.K_d: 'right'}[event.key]
+                    game_started = True
+
+        # Check if movement is locked or if action message is being displayed
+        if not lock_movement and current_direction == "None":
             current_direction = last_direction
 
-        if not display_action_message:
+        if not display_action_message and not fight_mode:
             time_left -= elapsed_time
-            print(f"Time left for move: {time_left:.2f} seconds")
-
             if time_left <= 0:
                 print("Time limit reached. Displaying action message.")
                 display_action_message = True
                 action_start_time = pygame.time.get_ticks()
-                time_left = 0
+                time_left = time_limit  # Reset time for next round
 
+        # Handle display of action messages and player movement
         if display_action_message:
             current_action_time = pygame.time.get_ticks()
-            if (current_action_time - action_start_time) / 1000.0 < action_display_time:
-                pass  # Do nothing, display message
-            else:
+            if (current_action_time - action_start_time) / 1000.0 >= action_display_time:
                 if current_direction != "None":
                     print(f"Player moving {current_direction} from {player_pos}")
                     move_player(current_direction)
@@ -223,18 +272,24 @@ def game_loop():
                     print(f"Bots before moving: {bots}")
                     move_bots()
                     print(f"Bots after moving: {bots}")
+                    update_grid()
+                    print_ascii_grid()  # Print ASCII grid to terminal
+                else:
+                    print("Waiting...")  # Display waiting message
                 current_direction = "None"
-                time_left = time_limit  # Reset the time_left
                 display_action_message = False
 
-        update_grid()
-        print_ascii_grid()  # Print ASCII grid to terminal        
+        # If in fight mode, process one step of the fight
+        if fight_mode:
+            fight_step()
+
+        # Always draw the grid and handle the stats
         draw_grid()
         draw_stats(time_left)
+        draw_footer()
         pygame.display.flip()
 
-        if game_over:
-            break
+        # Control frame rate
         clock.tick(30)
 
 # Initialize game
