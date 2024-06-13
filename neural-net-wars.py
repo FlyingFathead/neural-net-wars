@@ -1,9 +1,9 @@
-# neural net wars 0.14.06
+# neural net wars 0.14.06 // 13. jun 2024
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # https://github.com/FlyingFathead/neural-net-wars/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-# WIP! TODO:
+# *** WIP! *** TODO:
 #
 # - in the timerless mode it's not following the moves correctly in the right side of the GUI; update issue?
 # - maybe add laser gun / rocket shooting option; up, down, left right ...
@@ -12,6 +12,8 @@
 # - health bar for HP
 # - logging for battle logs (for LLM/model training)
 # - tts more meaner (add DSP pipeline for the tts output [insane distortion, low cut, hi boost, pitch down])
+# - options menu on GUI side
+# - configfile etc.
 
 import pygame
 import random
