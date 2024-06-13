@@ -1,12 +1,43 @@
-# neural net wars 0.14.05
+# neural net wars 0.14.06
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # https://github.com/FlyingFathead/neural-net-wars/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# TODO: 
-# - have the bots taunt/shout at the player in the footer messages (maybe use a TTS to read the taunts over the speakers)
 
 import pygame
 import random
+import pyttsx3
+import asyncio
+import threading
+
+class TTSManager:
+    def __init__(self):
+        self.tts_engine = pyttsx3.init()
+        self.cue = None
+        self.lock = threading.Lock()
+        self.is_playing = False
+
+    def _speak(self, text):
+        self.tts_engine.say(text)
+        self.tts_engine.runAndWait()
+        self.is_playing = False
+
+    def play_taunt(self, taunt):
+        with self.lock:
+            if not self.is_playing:
+                self.cue = taunt
+                self.is_playing = True
+                threading.Thread(target=self._speak, args=(taunt,)).start()
+
+    async def check_and_play(self):
+        while True:
+            await asyncio.sleep(0.1)
+            with self.lock:
+                if self.cue and not self.is_playing:
+                    self.is_playing = True
+                    threading.Thread(target=self._speak, args=(self.cue,)).start()
+                    self.cue = None
+
+tts_manager = TTSManager()
 
 # Initialize Pygame and load images
 pygame.init()
@@ -68,6 +99,20 @@ time_left = time_limit  # Initialize the timer
 footer_message = ""  # Footer message for additional information
 use_timer = False  # Flag to determine if the timer should be used
 end_game_message = ""  # Message displayed at the end of the game
+
+taunts = [
+    "You can't beat us!",
+    "Prepare to be terminated!",
+    "Is that all you've got?",
+    "You're no match for us!",
+    "We will destroy you!"
+]
+
+async def taunt_player():
+    taunt = random.choice(taunts)
+    global footer_message
+    footer_message = taunt
+    tts_manager.play_taunt(taunt)
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -228,6 +273,7 @@ def check_collision():
             fight_mode = True
             current_fight_bot = bot  # Track which bot is fighting
             footer_message = f"Collision at {bot['pos']}. Fight started!"
+            asyncio.create_task(taunt_player())  # Schedule taunt_player as a task
             break  # Exit loop once a fight is initiated
 
 def fight_step():
@@ -311,8 +357,9 @@ def reset_game_state():
     footer_message = ""
     end_game_message = ""
 
-def game_loop():
+async def async_game_loop():
     global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left, footer_message, end_game_message
+    asyncio.create_task(tts_manager.check_and_play())  # Run TTSManager check in the background
     while True:
         reset_game_state()  # Reset game state for each new game
         update_grid()  # Update grid after resetting the game state
@@ -344,6 +391,7 @@ def game_loop():
                                 move_bots()
                                 update_grid()
                                 print_ascii_grid()  # Print ASCII grid to terminal
+                                await taunt_player()  # Call taunt_player asynchronously
                         elif event.key == pygame.K_ESCAPE:
                             print("ESC pressed. Exiting game.")
                             pygame.quit()
@@ -432,4 +480,4 @@ def game_loop():
 
 # Initialize game
 update_grid()
-game_loop()
+asyncio.run(async_game_loop())

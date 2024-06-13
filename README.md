@@ -6,6 +6,20 @@ Neural Net Wars is a game where you control a human character to fight against b
 
 ![Neural Net Wars](https://github.com/FlyingFathead/neural-net-wars/blob/main/gfx/neural_net_wars_presentation.png?raw=true)
 
+## Requirements
+
+
+To run Neural Net Wars, you need the following Python packages:
+
+- `pygame>=2.5.2`
+- `pyttsx3>=2.90`
+
+You can install the required packages using the following command:
+
+```bash
+pip install -r requirements.txt
+```
+
 ## How to Play
 
 Use the arrow keys or W, A, S, D to move your character. Press SPACE to start a new game or ESC to exit.
@@ -16,12 +30,12 @@ Use the arrow keys or W, A, S, D to move your character. Press SPACE to start a 
 - GUI frontend via pygame
 - ASCII grid and graphical representation of the game state in the backend
 - can be piped to LLM's/LLM API's
+- bots taunting the player in footer messages & over audio w/ TTS.
 
 ## TODO
 
-- bots taunting the player in footer messages & over audio w/ TTS.
 - AI-controlled bots using a neural network.
-- sound effects and animations.
+- more sound effects and animations.
 - power-ups and obstacles, other game features etc.
 
 # About
@@ -30,6 +44,7 @@ WIP! Only rudimentary functionalities here at the moment.
 **i.e. LLM calling is currently a placeholder -- actual functionality coming soon, hopefully!**
 
 # Changelog
+- v0.14.06 - TTS taunts implemented
 - v0.14.05 - game loop now pretty much working, LLM implementation WIP
 - v0.14.04 - timer was made optional (`false` for immediate mode)
 - v0.14 - collisions and fights
