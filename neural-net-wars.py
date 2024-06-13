@@ -1,5 +1,3 @@
-# neural net wars v0.14
-
 import pygame
 import random
 
@@ -59,6 +57,7 @@ hit_chance = 0.5  # 50% chance to hit
 fight_mode = False  # Flag to indicate if a fight is happening
 current_fight_bot = None  # Track the current bot being fought
 game_started = False  # Track if the game has started
+time_left = time_limit  # Initialize the timer
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -228,10 +227,9 @@ def print_ascii_grid():
     print("=" * (width * 2 - 1) + "\n")
 
 def game_loop():
-    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started
+    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left
     last_update_time = pygame.time.get_ticks()
     action_start_time = 0
-    time_left = time_limit  # Initialize time_left here
 
     while not game_over:
         current_time = pygame.time.get_ticks()
@@ -247,13 +245,15 @@ def game_loop():
                 if event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s, pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d):
                     last_direction = {pygame.K_UP: 'up', pygame.K_w: 'up', pygame.K_DOWN: 'down', pygame.K_s: 'down',
                                       pygame.K_LEFT: 'left', pygame.K_a: 'left', pygame.K_RIGHT: 'right', pygame.K_d: 'right'}[event.key]
-                    game_started = True
+                    if not game_started:
+                        game_started = True
+                        time_left = time_limit  # Initialize the timer once the game starts
 
         # Check if movement is locked or if action message is being displayed
         if not lock_movement and current_direction == "None":
             current_direction = last_direction
 
-        if not display_action_message and not fight_mode:
+        if game_started and not display_action_message and not fight_mode:
             time_left -= elapsed_time
             if time_left <= 0:
                 print("Time limit reached. Displaying action message.")
