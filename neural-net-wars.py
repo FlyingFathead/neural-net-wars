@@ -1,7 +1,25 @@
-# neural net wars v0.11
+# neural net wars v0.12
 
 import pygame
 import random
+
+# Initialize Pygame and load images
+pygame.init()
+
+def load_and_resize_image(file_path, size):
+    try:
+        image = pygame.image.load(file_path)
+        return pygame.transform.scale(image, size)
+    except pygame.error:
+        return None
+
+# Load and resize images
+CELL_SIZE = 50
+robot_image = load_and_resize_image("gfx/neural_net_wars_robot.png", (CELL_SIZE, CELL_SIZE))
+human_image = load_and_resize_image("gfx/neural_net_wars_human.png", (CELL_SIZE, CELL_SIZE))
+human_senior_dmg_image = load_and_resize_image("gfx/neural_net_wars_human_senior_dmg.png", (CELL_SIZE, CELL_SIZE))
+human_senior_fire_image = load_and_resize_image("gfx/neural_net_wars_human_senior_fire.png", (CELL_SIZE, CELL_SIZE))
+human_senior_image = load_and_resize_image("gfx/neural_net_wars_human_senior.png", (CELL_SIZE, CELL_SIZE))
 
 # Constants
 DEFAULT_WIDTH = 12
@@ -9,7 +27,6 @@ DEFAULT_HEIGHT = 12
 PLAYER_CHAR = '@'
 BOT_CHAR = 'b'
 EMPTY_CHAR = ' '
-CELL_SIZE = 20
 # Constants for screen dimensions
 STATS_HEIGHT = 60  # Additional height to accommodate stats display
 MIN_STATS_WIDTH = 800  # Minimum width required for the stats section
@@ -65,9 +82,15 @@ def draw_grid():
         for x in range(width):
             rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             if grid[y][x] == PLAYER_CHAR:
-                pygame.draw.rect(screen, (0, 255, 0), rect)
+                if human_image:
+                    screen.blit(human_image, rect.topleft)
+                else:
+                    pygame.draw.rect(screen, (0, 255, 0), rect)  # Green if no image
             elif grid[y][x] == BOT_CHAR:
-                pygame.draw.rect(screen, (255, 0, 0), rect)
+                if robot_image:
+                    screen.blit(robot_image, rect.topleft)
+                else:
+                    pygame.draw.rect(screen, (255, 0, 0), rect)  # Red if no image
             pygame.draw.rect(screen, (255, 255, 255), rect, 1)
 
 def draw_stats(time_left):
