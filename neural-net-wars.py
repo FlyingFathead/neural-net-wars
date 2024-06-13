@@ -1,4 +1,4 @@
-# neural net wars 14.02
+# neural net wars 14.03
 
 import pygame
 import random
@@ -26,7 +26,6 @@ human_senior_image = load_and_resize_image("gfx/neural_net_wars_human_senior.png
 DEFAULT_WIDTH = 12
 DEFAULT_HEIGHT = 12
 PLAYER_CHAR = '@'
-BOT_CHAR = 'b'
 EMPTY_CHAR = ' '
 EXPLOSION_CHAR = 'X'  # Explosion indicator
 # Constants for screen dimensions
@@ -42,7 +41,7 @@ grid = [[EMPTY_CHAR for _ in range(width)] for _ in range(height)]
 initial_bots = 10
 initial_humans = 1
 player_pos = [height - 1, width // 2]
-bots = [[0, i * (width // initial_bots)] for i in range(initial_bots)]
+bots = [{"id": i, "pos": [0, i * (width // initial_bots)]} for i in range(initial_bots)]
 time_limit = 2  # Time limit for player move in seconds
 action_display_time = 1  # Time to display the action message
 game_over = False
@@ -93,11 +92,14 @@ def draw_grid():
                     screen.blit(human_image, rect.topleft)
                 else:
                     pygame.draw.rect(screen, (0, 255, 0), rect)  # Green if no image
-            elif grid[y][x] == BOT_CHAR:
+            elif isinstance(grid[y][x], int):  # Numbered bots
+                bot_id = grid[y][x]
                 if robot_image:
                     screen.blit(robot_image, rect.topleft)
                 else:
                     pygame.draw.rect(screen, (255, 0, 0), rect)  # Red if no image
+                text_surface = font.render(str(bot_id), True, (255, 255, 255))
+                screen.blit(text_surface, (rect.x + 10, rect.y + 10))  # Draw bot number
             elif grid[y][x] == EXPLOSION_CHAR:  # Explosion indicator
                 if explosion_image:
                     screen.blit(explosion_image, rect.topleft)
@@ -157,37 +159,63 @@ def move_player(direction):
     grid[player_pos[0]][player_pos[1]] = PLAYER_CHAR
     check_collision()
 
+def send_game_state_to_llm(grid, bots, player_pos):
+    game_state = {
+        "grid": grid,
+        "bots": [{ "id": bot["id"], "pos": bot["pos"] } for bot in bots],
+        "player_pos": player_pos
+    }
+    # For illustration, we mock the response
+    # response = requests.post(LLM_API_URL, json=game_state)
+    # return response.json()  # Assuming the LLM returns a JSON response with bot commands
+    # Mocked response
+    return {"bot_commands": ["down" for _ in bots]}
+
 def move_bots():
     global game_over, bot_count, fight_mode
 
     if fight_mode:
         return
 
-    for bot in bots:
-        old_pos = bot.copy()
-        bot[0] += 1
-        if bot[0] >= height:
-            print(f"Bot reached the bottom of the grid at {bot}. Game over.")
-            game_over = True
-        elif bot == player_pos:
-            print(f"Bot collided with the player at {bot}. Initiating fight.")
-            fight_mode = True
-            current_fight_bot = bot  # Track which bot is fighting
-            break
-        print(f"Bot moved from {old_pos} to {bot}")
+    # Get bot commands from LLM
+    llm_response = send_game_state_to_llm(grid, bots, player_pos)
+    bot_commands = llm_response["bot_commands"]
 
-    bots[:] = [bot for bot in bots if bot[0] < height and bot_hitpoints[bots.index(bot)] > 0]
+    for i, bot in enumerate(bots):
+        old_pos = bot["pos"].copy()
+        if bot_commands[i] == 'down':
+            bot["pos"][0] += 1
+        elif bot_commands[i] == 'up':
+            bot["pos"][0] -= 1
+        elif bot_commands[i] == 'left':
+            bot["pos"][1] -= 1
+        elif bot_commands[i] == 'right':
+            bot["pos"][1] += 1
+
+        # Ensure bot stays within bounds
+        bot["pos"][0] = max(0, min(bot["pos"][0], height - 1))
+        bot["pos"][1] = max(0, min(bot["pos"][1], width - 1))
+
+        if bot["pos"] == player_pos:
+            print(f"Bot {bot['id']} collided with the player at {bot['pos']}. Initiating fight.")
+            fight_mode = True
+            current_fight_bot = bot
+            break
+
+        print(f"Bot {bot['id']} moved from {old_pos} to {bot['pos']}")
+
+    bots[:] = [bot for bot in bots if bot["pos"][0] < height and bot_hitpoints[bot["id"]] > 0]
     bot_count = len(bots)
 
 def check_collision():
     global fight_mode, current_fight_bot, footer_message
 
     for bot in bots:
-        if bot == player_pos:
-            print(f"Collision detected at {bot}. Initiating fight.")
+        if bot["pos"] == player_pos:
+            print(f"Collision detected at {bot['pos']}. Initiating fight.")
             fight_mode = True
             current_fight_bot = bot  # Track which bot is fighting
-            footer_message = f"Collision at {bot}. Fight started!"
+            footer_message = f"Collision at {bot['pos']}. Fight started!"
             break  # Exit loop once a fight is initiated
 
 def fight_step():
@@ -196,7 +224,7 @@ def fight_step():
         fight_mode = False
         return
 
-    bot_index = bots.index(current_fight_bot)
+    bot_index = current_fight_bot["id"]
 
     if player_hitpoints > 0 and bot_hitpoints[bot_index] > 0:
         if random.random() < hit_chance:
@@ -221,7 +249,7 @@ def fight_step():
                 message = f"Bot {bot_index} is dead."
                 footer_message = message
                 print(message)
-                grid[current_fight_bot[0]][current_fight_bot[1]] = EXPLOSION_CHAR
+                grid[current_fight_bot["pos"][0]][current_fight_bot["pos"][1]] = EXPLOSION_CHAR
                 bots.remove(current_fight_bot)
                 bot_count -= 1
                 fight_mode = False
@@ -233,14 +261,14 @@ def update_grid():
     grid = [[EMPTY_CHAR for _ in range(width)] for _ in range(height)]
     grid[player_pos[0]][player_pos[1]] = PLAYER_CHAR
     for bot in bots:
-        if bot[0] < height:
-            grid[bot[0]][bot[1]] = BOT_CHAR
+        if bot["pos"][0] < height:
+            grid[bot["pos"][0]][bot["pos"][1]] = bot["id"]
     check_collision()
 
 def print_ascii_grid():
     print("\n" + "=" * (width * 2 - 1))
     for row in grid:
-        print(' '.join(row))
+        print(' '.join(str(cell) for cell in row))
     print("=" * (width * 2 - 1) + "\n")
 
 def game_loop():
