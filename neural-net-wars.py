@@ -1,3 +1,5 @@
+# neural net wars 14.01
+
 import pygame
 import random
 
@@ -26,6 +28,7 @@ DEFAULT_HEIGHT = 12
 PLAYER_CHAR = '@'
 BOT_CHAR = 'b'
 EMPTY_CHAR = ' '
+EXPLOSION_CHAR = 'X'  # Explosion indicator
 # Constants for screen dimensions
 STATS_HEIGHT = 60  # Additional height to accommodate stats display
 STATS_WIDTH = 210  # Width for the stats display area
@@ -94,7 +97,7 @@ def draw_grid():
                     screen.blit(robot_image, rect.topleft)
                 else:
                     pygame.draw.rect(screen, (255, 0, 0), rect)  # Red if no image
-            elif grid[y][x] == 'X':  # Explosion indicator
+            elif grid[y][x] == EXPLOSION_CHAR:  # Explosion indicator
                 if explosion_image:
                     screen.blit(explosion_image, rect.topleft)
                 else:
@@ -196,7 +199,7 @@ def fight_step():
             if player_hitpoints <= 0:
                 print("Player is dead. Game over.")
                 game_over = True
-                grid[player_pos[0]][player_pos[1]] = 'X'
+                grid[player_pos[0]][player_pos[1]] = EXPLOSION_CHAR
                 fight_mode = False
 
         if random.random() < hit_chance:
@@ -204,7 +207,7 @@ def fight_step():
             print(f"Player hit Bot {bot_index}!")
             if bot_hitpoints[bot_index] <= 0:
                 print(f"Bot {bot_index} is dead.")
-                grid[current_fight_bot[0]][current_fight_bot[1]] = 'X'
+                grid[current_fight_bot[0]][current_fight_bot[1]] = EXPLOSION_CHAR
                 bots.remove(current_fight_bot)
                 bot_count -= 1
                 fight_mode = False
@@ -282,6 +285,7 @@ def game_loop():
         # If in fight mode, process one step of the fight
         if fight_mode:
             fight_step()
+            print_ascii_grid()  # Print ASCII grid to terminal after fight step
 
         # Always draw the grid and handle the stats
         draw_grid()
