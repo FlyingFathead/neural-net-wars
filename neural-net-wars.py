@@ -1,3 +1,5 @@
+# neural net wars v0.10
+
 import pygame
 
 # Constants
@@ -107,7 +109,7 @@ def move_bots():
     bot_count = len(bots)
 
 def update_grid():
-    global game_over
+    global game_over, grid
     grid = [[EMPTY_CHAR for _ in range(width)] for _ in range(height)]
     grid[player_pos[0]][player_pos[1]] = PLAYER_CHAR
     for bot in bots:
@@ -116,7 +118,6 @@ def update_grid():
         if bot == player_pos:
             print(f"Bot collided with the player in update_grid at {bot}. Game over.")
             game_over = True
-    return grid
 
 def print_ascii_grid():
     print("\n" + "=" * (width * 2 - 1))
@@ -178,7 +179,7 @@ def game_loop():
                 time_left = time_limit  # Reset the time_left
                 display_action_message = False
 
-        grid = update_grid()
+        update_grid()
         print_ascii_grid()  # Print ASCII grid to terminal        
         draw_grid()
         draw_stats(time_left)
@@ -189,7 +190,7 @@ def game_loop():
         clock.tick(30)
 
 # Initialize game
-grid = update_grid()
+update_grid()
 if not game_over:
     game_loop()
 
