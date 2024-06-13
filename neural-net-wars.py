@@ -1,4 +1,4 @@
-# neural net wars 0.15.01 // 13. jun 2024
+# neural net wars 0.15.02 // 13. jun 2024
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # https://github.com/FlyingFathead/neural-net-wars/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15,42 +15,14 @@
 # - options menu on GUI side
 # - configfile etc.
 
+import os
 import pygame
 import random
 import pyttsx3
 import asyncio
 import threading
+import subprocess
 from collections import deque
-
-class TTSManager:
-    def __init__(self):
-        self.tts_engine = pyttsx3.init()
-        self.cue = None
-        self.lock = threading.Lock()
-        self.is_playing = False
-
-    def _speak(self, text):
-        self.tts_engine.say(text)
-        self.tts_engine.runAndWait()
-        self.is_playing = False
-
-    def play_taunt(self, taunt):
-        with self.lock:
-            if not self.is_playing:
-                self.cue = taunt
-                self.is_playing = True
-                threading.Thread(target=self._speak, args=(taunt,)).start()
-
-    async def check_and_play(self):
-        while True:
-            await asyncio.sleep(0.1)
-            with self.lock:
-                if self.cue and not self.is_playing:
-                    self.is_playing = True
-                    threading.Thread(target=self._speak, args=(self.cue,)).start()
-                    self.cue = None
-
-tts_manager = TTSManager()
 
 # Initialize Pygame and load images
 pygame.init()
@@ -121,11 +93,21 @@ taunts = [
     "We will destroy you!"
 ]
 
+# text-to-speech
+# Run TTS taunt as a subprocess with DSP
+def play_taunt(taunt):
+    try:
+        python_executable = '/usr/bin/python3'  # Replace this with the actual path to your Python interpreter
+        script_path = os.path.join(os.path.dirname(__file__), 'tts_playback.py')
+        subprocess.Popen([python_executable, script_path, taunt])
+    except Exception as e:
+        print(f"Error playing taunt: {e}")
+
 async def taunt_player():
     taunt = random.choice(taunts)
     global footer_message
     footer_message = taunt
-    tts_manager.play_taunt(taunt)
+    play_taunt(taunt)
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -473,7 +455,6 @@ def reset_game_state():
 
 async def async_game_loop():
     global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left, footer_message, end_game_message
-    asyncio.create_task(tts_manager.check_and_play())  # Run TTSManager check in the background
     while True:
         reset_game_state()  # Reset game state for each new game
         update_grid()  # Update grid after resetting the game state
