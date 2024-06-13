@@ -2,12 +2,16 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # https://github.com/FlyingFathead/neural-net-wars/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# TODO:
+#
+# WIP! TODO:
+#
 # - in the timerless mode it's not following the moves correctly in the right side of the GUI; update issue?
 # - maybe add laser gun / rocket shooting option; up, down, left right ...
 # - gameplay balancing; i.e. medkits, gun drops ... (grenades? rocket launchers?)
-# - overall hit mechanics
-# - logging for battle logs (for LLM training)
+# - overall hit/battle mechanics (odds+hp dmg etc)
+# - health bar for HP
+# - logging for battle logs (for LLM/model training)
+# - tts more meaner (add DSP pipeline for the tts output [insane distortion, low cut, hi boost, pitch down])
 
 import pygame
 import random
