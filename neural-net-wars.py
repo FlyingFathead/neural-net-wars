@@ -1,4 +1,4 @@
-# neural net wars 14.03
+# neural net wars 0.14.04
 
 import pygame
 import random
@@ -61,6 +61,7 @@ current_fight_bot = None  # Track the current bot being fought
 game_started = False  # Track if the game has started
 time_left = time_limit  # Initialize the timer
 footer_message = ""  # Footer message for additional information
+use_timer = False  # Flag to determine if the timer should be used
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -110,13 +111,15 @@ def draw_grid():
 def draw_stats(time_left):
     # Prepare and draw the stats text without background fill
     if display_action_message:
-        stats_text = f"[ *** ACTION! *** ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
+        stats_text = f"*** ACTION! ***\nMove: {current_direction}\nBots: {bot_count}\nHumans: {human_count}"
+    elif use_timer:
+        stats_text = f"Time left: {time_left:.1f} s\nMove: {current_direction}\nBots: {bot_count}\nHumans: {human_count}"
     else:
-        stats_text = f"[ Time left: {time_left:.1f} s ]\n[ Move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
+        stats_text = f"Waiting...\nMove: {current_direction}\nBots: {bot_count}\nHumans: {human_count}"
 
-    stats_text += f"\n[ Player HP: {player_hitpoints} ]"
+    stats_text += f"\nPlayer HP: {player_hitpoints}"
     for i, hp in enumerate(bot_hitpoints):
-        stats_text += f"\n[ Bot {i} HP: {hp} ]"
+        stats_text += f"\nBot {i} HP: {hp}"
 
     y_offset = 10
     for line in stats_text.split('\n'):
@@ -294,12 +297,17 @@ def game_loop():
                         game_started = True
                         time_left = time_limit  # Initialize the timer once the game starts
                         footer_message = ""
+                    else:
+                        move_player(last_direction)
+                        move_bots()
+                        update_grid()
+                        print_ascii_grid()  # Print ASCII grid to terminal
 
         # Check if movement is locked or if action message is being displayed
         if not lock_movement and current_direction == "None":
             current_direction = last_direction
 
-        if game_started and not display_action_message and not fight_mode:
+        if game_started and not display_action_message and not fight_mode and use_timer:
             time_left -= elapsed_time
             if time_left <= 0:
                 print("Time limit reached. Displaying action message.")
