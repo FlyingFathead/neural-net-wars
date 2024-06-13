@@ -11,14 +11,16 @@ Use the arrow keys or W, A, S, D to move your character. Press SPACE to start a 
 ## Features
 
 - LLM implementation basis
-- ASCII grid and graphical representation of the game state.
+- GUI frontend via pygame
+- ASCII grid and graphical representation of the game state in the backend
+- can be piped to LLM's/LLM API's
 
 ## TODO
 
-- Bots taunt the player in footer messages.
+- bots taunting the player in footer messages & over audio w/ TTS.
 - AI-controlled bots using a neural network.
-- Add sound effects and animations.
-- Implement power-ups and obstacles, other game features etc.
+- sound effects and animations.
+- power-ups and obstacles, other game features etc.
 
 # About
 WIP! Only rudimentary functionalities here at the moment.
