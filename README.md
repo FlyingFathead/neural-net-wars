@@ -10,14 +10,15 @@ Use the arrow keys or W, A, S, D to move your character. Press SPACE to start a 
 
 ## Features
 
-- Bots taunt the player in footer messages.
-- AI-controlled bots using a neural network.
+- LLM implementation basis
 - ASCII grid and graphical representation of the game state.
 
 ## TODO
 
+- Bots taunt the player in footer messages.
+- AI-controlled bots using a neural network.
 - Add sound effects and animations.
-- Implement power-ups and obstacles.
+- Implement power-ups and obstacles, other game features etc.
 
 # About
 WIP! Only rudimentary functionalities here at the moment.
