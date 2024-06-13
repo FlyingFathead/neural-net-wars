@@ -5,6 +5,9 @@
 # TODO:
 # - in the timerless mode it's not following the moves correctly in the right side of the GUI; update issue?
 # - maybe add laser gun / rocket shooting option; up, down, left right ...
+# - gameplay balancing; i.e. medkits, gun drops ...
+# - overall hit mechanics
+# - logging for battle logs (LLM improvements)
 
 import pygame
 import random
