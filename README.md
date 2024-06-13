@@ -1,4 +1,4 @@
-# neural-net-wars
+# NEURAL NET WARS
 
 Neural Net Wars is a game where you control a human character to fight against bots controlled by an AI (customizable to run against different LLM's and their API's, such as OpenAI, Anthropic, etc.)
 
