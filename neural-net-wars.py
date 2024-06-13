@@ -1,6 +1,7 @@
-# neural net wars v0.10
+# neural net wars v0.11
 
 import pygame
+import random
 
 # Constants
 DEFAULT_WIDTH = 12
@@ -12,6 +13,8 @@ CELL_SIZE = 20
 # Constants for screen dimensions
 STATS_HEIGHT = 60  # Additional height to accommodate stats display
 MIN_STATS_WIDTH = 800  # Minimum width required for the stats section
+STATS_WIDTH = 200  # Width for the stats display area
+MIN_HEIGHT = 600  # Minimum height required for the window
 
 # Game State
 width = DEFAULT_WIDTH
@@ -32,13 +35,17 @@ bot_count = initial_bots
 display_action_message = False  # Flag to display the action message
 last_direction = "None"
 lock_movement = True
+player_hitpoints = 10
+bot_hitpoints = [3 for _ in range(initial_bots)]
+hit_chance = 0.5  # 50% chance to hit
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
-total_width = max(grid_width, MIN_STATS_WIDTH)  # Ensure the screen is at least as wide as MIN_STATS_WIDTH
+total_width = max(grid_width + STATS_WIDTH, MIN_STATS_WIDTH)  # Ensure the screen is at least as wide as MIN_STATS_WIDTH
 
-# Total screen dimensions
-total_height = height * CELL_SIZE + STATS_HEIGHT
+# Calculate necessary screen height
+grid_height = height * CELL_SIZE + STATS_HEIGHT
+total_height = max(grid_height, MIN_HEIGHT)  # Ensure the screen is at least as tall as MIN_HEIGHT
 
 # Initialize Pygame
 try:
@@ -64,18 +71,21 @@ def draw_grid():
             pygame.draw.rect(screen, (255, 255, 255), rect, 1)
 
 def draw_stats(time_left):
-    # Define the area where stats will be displayed
-    stats_area = pygame.Rect(0, height * CELL_SIZE, total_width, STATS_HEIGHT)
-    pygame.draw.rect(screen, (0, 0, 0), stats_area)
-
-    # Prepare and draw the stats text
+    # Prepare and draw the stats text without background fill
     if display_action_message:
-        stats_text = f"[ 🚨 ACTION! 🚨 ] [ Current move: {current_direction} ] [ Bots: {bot_count} Humans: {human_count} ]"
+        stats_text = f"[ 🚨 ACTION! 🚨 ]\n[ Current move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
     else:
-        stats_text = f"[ Time left: {time_left:.1f} s ] [ Current move: {current_direction} ] [ Bots: {bot_count} Humans: {human_count} ]"
+        stats_text = f"[ Time left: {time_left:.1f} s ]\n[ Current move: {current_direction} ]\n[ Bots: {bot_count} ]\n[ Humans: {human_count} ]"
 
-    text_surface = font.render(stats_text, True, (255, 255, 255))
-    screen.blit(text_surface, (10, height * CELL_SIZE + 10))  # Adjust x, y to align text within stats_area
+    stats_text += f"\n[ Player HP: {player_hitpoints} ]"
+    for i, hp in enumerate(bot_hitpoints):
+        stats_text += f"\n[ Bot {i} HP: {hp} ]"
+
+    y_offset = 10
+    for line in stats_text.split('\n'):
+        text_surface = font.render(line, True, (255, 255, 255))
+        screen.blit(text_surface, (grid_width + 10, y_offset))  # Adjust x, y to align text within stats_area
+        y_offset += 30
 
 def move_player(direction):
     global player_pos, grid
@@ -103,10 +113,25 @@ def move_bots():
             print(f"Bot reached the bottom of the grid at {bot}. Game over.")
             game_over = True
         elif bot == player_pos:
-            print(f"Bot collided with the player at {bot}. Game over.")
-            game_over = True
-    bots[:] = [bot for bot in bots if bot[0] < height]
+            print(f"Bot collided with the player at {bot}. Initiating attack.")
+            attack(bot)
+    bots[:] = [bot for bot in bots if bot[0] < height and bot_hitpoints[bots.index(bot)] > 0]
     bot_count = len(bots)
+
+def attack(bot):
+    global player_hitpoints, game_over
+    if random.random() < hit_chance:
+        print("Bot hit the player!")
+        player_hitpoints -= 1
+        if player_hitpoints <= 0:
+            print("Player is dead. Game over.")
+            game_over = True
+    if random.random() < hit_chance:
+        bot_index = bots.index(bot)
+        print(f"Player hit Bot {bot_index}!")
+        bot_hitpoints[bot_index] -= 1
+        if bot_hitpoints[bot_index] <= 0:
+            print(f"Bot {bot_index} is dead.")
 
 def update_grid():
     global game_over, grid
