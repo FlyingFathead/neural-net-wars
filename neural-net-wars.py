@@ -1,4 +1,9 @@
-# neural net wars 0.14.04
+# neural net wars 0.14.05
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# https://github.com/FlyingFathead/neural-net-wars/
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# TODO: 
+# - have the bots taunt/shout at the player in the footer messages (maybe use a TTS to read the taunts over the speakers)
 
 import pygame
 import random
@@ -34,7 +39,7 @@ STATS_WIDTH = 210  # Width for the stats display area
 MIN_HEIGHT = 600  # Minimum height required for the window
 MIN_STATS_WIDTH = STATS_WIDTH + 600  # Minimum width required for the window including stats
 
-# Game State
+# Global Game State
 width = DEFAULT_WIDTH
 height = DEFAULT_HEIGHT
 grid = [[EMPTY_CHAR for _ in range(width)] for _ in range(height)]
@@ -62,6 +67,7 @@ game_started = False  # Track if the game has started
 time_left = time_limit  # Initialize the timer
 footer_message = ""  # Footer message for additional information
 use_timer = False  # Flag to determine if the timer should be used
+end_game_message = ""  # Message displayed at the end of the game
 
 # Calculate necessary screen width
 grid_width = width * CELL_SIZE
@@ -128,7 +134,10 @@ def draw_stats(time_left):
         y_offset += 30
 
 def draw_footer():
-    footer_text = footer_message if footer_message else ("Game on!" if game_started else "Press arrow keys or W,A,S,D to start")
+    if game_over:
+        footer_text = end_game_message
+    else:
+        footer_text = footer_message if footer_message else ("Game on!" if game_started else "Press arrow keys or W,A,S,D to start or ESC to exit")
     text_surface = font.render(footer_text, True, (255, 255, 255))
     screen.blit(text_surface, (10, total_height - 40))  # Align text at the bottom left
 
@@ -274,90 +283,153 @@ def print_ascii_grid():
         print(' '.join(str(cell) for cell in row))
     print("=" * (width * 2 - 1) + "\n")
 
+def reset_game_state():
+    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left, footer_message, player_hitpoints, bots, bot_hitpoints, end_game_message, player_pos
+    width = DEFAULT_WIDTH
+    height = DEFAULT_HEIGHT
+    grid = [[EMPTY_CHAR for _ in range(width)] for _ in range(height)]
+    player_pos = [height - 1, width // 2]
+    bots = [{"id": i, "pos": [0, i * (width // initial_bots)]} for i in range(initial_bots)]
+    time_limit = 2
+    action_display_time = 1
+    game_over = False
+    wrap_around = True
+    current_direction = "None"
+    selected_direction = "None"
+    human_count = initial_humans
+    bot_count = initial_bots
+    display_action_message = False
+    last_direction = "None"
+    lock_movement = False
+    player_hitpoints = 10
+    bot_hitpoints = [3 for _ in range(initial_bots)]
+    hit_chance = 0.5
+    fight_mode = False
+    current_fight_bot = None
+    game_started = False
+    time_left = time_limit
+    footer_message = ""
+    end_game_message = ""
+
 def game_loop():
-    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left, footer_message
-    last_update_time = pygame.time.get_ticks()
-    action_start_time = 0
+    global game_over, current_direction, last_direction, display_action_message, fight_mode, bot_count, game_started, time_left, footer_message, end_game_message
+    while True:
+        reset_game_state()  # Reset game state for each new game
+        update_grid()  # Update grid after resetting the game state
+        last_update_time = pygame.time.get_ticks()
+        action_start_time = 0
 
-    while not game_over:
-        current_time = pygame.time.get_ticks()
-        elapsed_time = (current_time - last_update_time) / 1000.0  # Convert to seconds
-        last_update_time = current_time
+        while not game_over:
+            current_time = pygame.time.get_ticks()
+            elapsed_time = (current_time - last_update_time) / 1000.0  # Convert to seconds
+            last_update_time = current_time
 
-        # Process events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                print("Quit event detected. Game over.")
-                game_over = True
-            elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s, pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d):
-                    last_direction = {pygame.K_UP: 'up', pygame.K_w: 'up', pygame.K_DOWN: 'down', pygame.K_s: 'down',
-                                      pygame.K_LEFT: 'left', pygame.K_a: 'left', pygame.K_RIGHT: 'right', pygame.K_d: 'right'}[event.key]
-                    if not game_started:
-                        game_started = True
-                        time_left = time_limit  # Initialize the timer once the game starts
-                        footer_message = ""
-                    else:
-                        move_player(last_direction)
+            # Process events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print("Quit event detected. Game over.")
+                    pygame.quit()
+                    return
+                elif event.type == pygame.KEYDOWN:
+                    if not game_over:
+                        if event.key in (pygame.K_UP, pygame.K_w, pygame.K_DOWN, pygame.K_s, pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d):
+                            last_direction = {pygame.K_UP: 'up', pygame.K_w: 'up', pygame.K_DOWN: 'down', pygame.K_s: 'down',
+                                              pygame.K_LEFT: 'left', pygame.K_a: 'left', pygame.K_RIGHT: 'right', pygame.K_d: 'right'}[event.key]
+                            if not game_started:
+                                game_started = True
+                                time_left = time_limit  # Initialize the timer once the game starts
+                                footer_message = ""
+                            else:
+                                move_player(last_direction)
+                                move_bots()
+                                update_grid()
+                                print_ascii_grid()  # Print ASCII grid to terminal
+                        elif event.key == pygame.K_ESCAPE:
+                            print("ESC pressed. Exiting game.")
+                            pygame.quit()
+                            return  # Ensure the game quits properly
+                    elif game_over:
+                        if event.key == pygame.K_ESCAPE:
+                            print("ESC pressed. Exiting game.")
+                            pygame.quit()
+                            return  # Ensure the game quits properly
+                        elif event.key == pygame.K_SPACE:
+                            print("SPACE pressed. Restarting game.")
+                            game_over = False
+                            game_started = False
+                            break  # Exit the waiting loop to restart the game
+
+            # Check if movement is locked or if action message is being displayed
+            if not lock_movement and current_direction == "None":
+                current_direction = last_direction
+
+            if game_started and not display_action_message and not fight_mode and use_timer:
+                time_left -= elapsed_time
+                if time_left <= 0:
+                    print("Time limit reached. Displaying action message.")
+                    display_action_message = True
+                    action_start_time = pygame.time.get_ticks()
+                    time_left = time_limit  # Reset time for next round
+
+            # Handle display of action messages and player movement
+            if display_action_message:
+                current_action_time = pygame.time.get_ticks()
+                if (current_action_time - action_start_time) / 1000.0 >= action_display_time:
+                    if current_direction != "None":
+                        print(f"Player moving {current_direction} from {player_pos}")
+                        move_player(current_direction)
+                        print(f"Player moved to {player_pos}")
+                        print(f"Bots before moving: {bots}")
                         move_bots()
+                        print(f"Bots after moving: {bots}")
                         update_grid()
                         print_ascii_grid()  # Print ASCII grid to terminal
+                    else:
+                        footer_message = "Waiting..."  # Display waiting message
+                        print(footer_message)
+                    current_direction = "None"
+                    display_action_message = False
 
-        # Check if movement is locked or if action message is being displayed
-        if not lock_movement and current_direction == "None":
-            current_direction = last_direction
+            # If in fight mode, process one step of the fight
+            if fight_mode:
+                fight_step()
+                print_ascii_grid()  # Print ASCII grid to terminal after fight step
 
-        if game_started and not display_action_message and not fight_mode and use_timer:
-            time_left -= elapsed_time
-            if time_left <= 0:
-                print("Time limit reached. Displaying action message.")
-                display_action_message = True
-                action_start_time = pygame.time.get_ticks()
-                time_left = time_limit  # Reset time for next round
+            # Always draw the grid and handle the stats
+            draw_grid()
+            draw_stats(time_left)
+            draw_footer()
+            pygame.display.flip()
 
-        # Handle display of action messages and player movement
-        if display_action_message:
-            current_action_time = pygame.time.get_ticks()
-            if (current_action_time - action_start_time) / 1000.0 >= action_display_time:
-                if current_direction != "None":
-                    print(f"Player moving {current_direction} from {player_pos}")
-                    move_player(current_direction)
-                    print(f"Player moved to {player_pos}")
-                    print(f"Bots before moving: {bots}")
-                    move_bots()
-                    print(f"Bots after moving: {bots}")
-                    update_grid()
-                    print_ascii_grid()  # Print ASCII grid to terminal
-                else:
-                    footer_message = "Waiting..."  # Display waiting message
-                    print(footer_message)
-                current_direction = "None"
-                display_action_message = False
+            # Control frame rate
+            clock.tick(30)
 
-        # If in fight mode, process one step of the fight
-        if fight_mode:
-            fight_step()
-            print_ascii_grid()  # Print ASCII grid to terminal after fight step
+        if bot_count == 0:
+            end_game_message = "Humans win! Press SPACE for a new game or ESC to exit"
+        else:
+            end_game_message = "Bots win! Press SPACE for a new game or ESC to exit"
 
-        # Always draw the grid and handle the stats
-        draw_grid()
-        draw_stats(time_left)
+        print(end_game_message)
         draw_footer()
         pygame.display.flip()
 
-        # Control frame rate
-        clock.tick(30)
+        # Wait for user input to restart or exit
+        while game_over:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print("Quit event detected. Exiting game.")
+                    pygame.quit()
+                    return
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        print("ESC pressed. Exiting game.")
+                        pygame.quit()
+                        return  # Ensure the game quits properly
+                    elif event.key == pygame.K_SPACE:
+                        print("SPACE pressed. Restarting game.")
+                        game_over = False
+                        break  # Exit the waiting loop to restart the game
 
 # Initialize game
 update_grid()
-if not game_over:
-    game_loop()
-
-if bot_count == 0:
-    winner_text = "Humans win!"
-else:
-    winner_text = "Bots win!"
-
-print(winner_text)
-pygame.quit()
-print("Game Over!")
+game_loop()
