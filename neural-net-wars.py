@@ -16,6 +16,7 @@
 # - configfile etc.
 
 import os
+import logging
 import pygame
 import random
 import pyttsx3
@@ -23,6 +24,9 @@ import asyncio
 import threading
 import subprocess
 from collections import deque
+
+# Initialize logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Initialize Pygame and load images
 pygame.init()
