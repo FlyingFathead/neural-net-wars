@@ -13,6 +13,8 @@ To run Neural Net Wars, you need the following Python packages:
 
 - `pygame>=2.5.2`
 - `pyttsx3>=2.90`
+- `pydub>=0.25.1`
+- `simpleaudio>=1.0.4`
 
 You can install the required packages using the following command:
 
