@@ -1,4 +1,4 @@
-# neural net wars 0.15.02 // 13. jun 2024
+# neural net wars 0.15.03 // 13. jun 2024
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # https://github.com/FlyingFathead/neural-net-wars/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,15 +93,25 @@ taunts = [
     "We will destroy you!"
 ]
 
+# Global flag to check if a taunt is playing
+is_taunt_playing = threading.Lock()
+
 # text-to-speech
 # Run TTS taunt as a subprocess with DSP
-def play_taunt(taunt):
+def taunt_worker(taunt):
     try:
         python_executable = '/usr/bin/python3'  # Replace this with the actual path to your Python interpreter
         script_path = os.path.join(os.path.dirname(__file__), 'tts_playback.py')
-        subprocess.Popen([python_executable, script_path, taunt])
+        with is_taunt_playing:  # Acquire the lock
+            subprocess.run([python_executable, script_path, taunt])
     except Exception as e:
         print(f"Error playing taunt: {e}")
+
+# Run TTS taunt as a subprocess with DSP
+def play_taunt(taunt):
+    if is_taunt_playing.locked():
+        return  # If a taunt is already playing, do not start a new one
+    threading.Thread(target=taunt_worker, args=(taunt,)).start()
 
 async def taunt_player():
     taunt = random.choice(taunts)
